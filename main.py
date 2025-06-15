@@ -23,6 +23,15 @@ from fastapi.responses import HTMLResponse
 from mcp.server.fastmcp import FastMCP, Context
 from dotenv import load_dotenv
 import json
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+
+logger = logging.getLogger(__name__)
 
 """
 Superset MCP Integration
@@ -84,13 +93,13 @@ def save_access_token(token: str):
         with open(ACCESS_TOKEN_STORE_PATH, "w") as f:
             f.write(token)
     except Exception as e:
-        print(f"Warning: Could not save access token: {e}")
+        logger.warning(f"Warning: Could not save access token: {e}")
 
 
 @asynccontextmanager
 async def superset_lifespan(server: FastMCP) -> AsyncIterator[SupersetContext]:
     """Manage application lifecycle for Superset integration"""
-    print("Initializing Superset context...")
+    logger.info("Initializing Superset context...")
 
     # Create HTTP client
     client = httpx.AsyncClient(base_url=SUPERSET_BASE_URL, timeout=30.0)
@@ -104,19 +113,19 @@ async def superset_lifespan(server: FastMCP) -> AsyncIterator[SupersetContext]:
         ctx.access_token = stored_token
         # Set the token in the client headers
         client.headers.update({"Authorization": f"Bearer {stored_token}"})
-        print("Using stored access token")
+        logger.info("Using stored access token")
 
         # Verify token validity
         try:
             response = await client.get("/api/v1/me/")
             if response.status_code != 200:
-                print(
+                logger.info(
                     f"Stored token is invalid (status {response.status_code}). Will need to re-authenticate."
                 )
                 ctx.access_token = None
                 client.headers.pop("Authorization", None)
         except Exception as e:
-            print(f"Error verifying stored token: {e}")
+            logger.info(f"Error verifying stored token: {e}")
             ctx.access_token = None
             client.headers.pop("Authorization", None)
 
@@ -124,7 +133,7 @@ async def superset_lifespan(server: FastMCP) -> AsyncIterator[SupersetContext]:
         yield ctx
     finally:
         # Cleanup on shutdown
-        print("Shutting down Superset context...")
+        logger.info("Shutting down Superset context...")
         await client.aclose()
 
 
@@ -212,12 +221,12 @@ async def with_auto_refresh(
         raise e
 
     # If we got a 401, try to refresh the token
-    print("Received 401 Unauthorized. Attempting to refresh token...")
+    logger.info("Received 401 Unauthorized. Attempting to refresh token...")
     refresh_result = await superset_auth_refresh_token(ctx)
 
     if refresh_result.get("error"):
         # If refresh failed, try to re-authenticate
-        print(
+        logger.info(
             f"Token refresh failed: {refresh_result.get('error')}. Attempting re-authentication..."
         )
         auth_result = await superset_auth_authenticate_user(ctx)
@@ -250,10 +259,12 @@ async def get_csrf_token(ctx: Context) -> Optional[str]:
             superset_ctx.csrf_token = csrf_token
             return csrf_token
         else:
-            print(f"Failed to get CSRF token: {response.status_code} - {response.text}")
+            logger.info(
+                f"Failed to get CSRF token: {response.status_code} - {response.text}"
+            )
             return None
     except Exception as e:
-        print(f"Error getting CSRF token: {str(e)}")
+        logger.info(f"Error getting CSRF token: {str(e)}")
         return None
 
 
@@ -1829,5 +1840,5 @@ async def superset_advanced_data_type_list(ctx: Context) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    print("Starting Superset MCP server...")
+    logger.info("Starting Superset MCP server...")
     mcp.run()
