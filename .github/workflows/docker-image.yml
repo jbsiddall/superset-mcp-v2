@@ -24,6 +24,6 @@ jobs:
       uses: docker/build-push-action@v6.18.0
       with:
         push: true
-        tags: superset-mcp-v2:$(date +%s)
+        tags: superset-mcp-v2:latest
         labels: org.opencontainers.image.source=https://github.com/jbsiddall/lavametrics
               
