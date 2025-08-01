@@ -1837,8 +1837,3 @@ async def superset_advanced_data_type_list(ctx: Context) -> Dict[str, Any]:
         A dictionary with available advanced data types and their configurations
     """
     return await make_api_request(ctx, "get", "/api/v1/advanced_data_type/types")
-
-
-if __name__ == "__main__":
-    logger.info("Starting Superset MCP server...")
-    mcp.run()
